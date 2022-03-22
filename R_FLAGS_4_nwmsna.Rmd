@@ -1,0 +1,234 @@
+---
+title: "NW_cleaning script"
+output: html_notebook
+---
+
+
+```{r}
+#Load packages
+library(readxl)
+library(writexl)
+library(dplyr)
+library(tidyverse)
+library(dplyr)
+
+survey_data <- read_excel("NGA2105_H_2022-03-16-09-30-15.xlsx",
+                        sheet = 'NGA2105_HH_MSNA2022')
+```
+```{r}
+#Survey time is too Afast <- survey_data %>%
+cleaning_log <- survey_data%>%
+  select(`_uuid`,"enumerator_id",`hh_count`,`end`,`start`) %>%
+  filter(`hh_count` > 5 & `end` - `start`<= 20)%>%
+  mutate(question_xml = "hh_count",question_name = "Time difference is too low",
+  explanation = "The survey took less than 20 mins for HH with more than 5
+  members-The enumerator need to be instructed to slow down.",old_value = "start_end", notes = "", new_value = "", reason = "") %>%
+ select(`_uuid`,question_xml,question_name, explanation,"enumerator_id",notes, old_value, new_value, reason)
+```
+
+
+```{r}
+#Income < #5000 but source of water is bottle water
+  cleaning_log_1<- survey_data %>% 
+ select(`_uuid`,"enumerator_id","main_source_water",
+        "overall_income_estimate") %>%
+  filter(`main_source_water` == "bottle_water" & `overall_income_estimate`
+         == "less_than") %>%
+  mutate(question_xml = "main_source_water", question_name = "What is the main 
+  source of water used by your household for drinking?", explanation = 
+           "HH has limited income but main source of water is bottle water", notes = "", 
+         old_value = `main_source_water`, new_value = "", reason = "")%>%
+  select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, old_value, new_value, reason) 
+
+```
+```{r}
+#Income source is zero but reported other source of income.
+  cleaning_log_2 <- survey_data %>% 
+  select(`_uuid`,"enumerator_id","source_of_income",
+         "overall_income_estimate") %>%
+  filter(`overall_income_estimate` == 0 & `source_of_income` !=
+           "no_income")%>%
+mutate(question_xml = "source_of_income", question_name = "Over the
+       course of the past 30 days, what were your household's primary 
+       sources of income?", explanation =  "Household reported 0 income but 
+       reported key sources of income. Please 
+       check amount of income was correct.", notes = "", old_value = 
+         `source_of_income`, new_value = "", reason = "")%>%
+  select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, old_value, new_value, reason)
+
+```
+```{r}
+#HH reported income but reported no income as key sources of income
+  cleaning_log_3 <- survey_data %>% 
+  select(`_uuid`,"enumerator_id","source_of_income",
+         "overall_income_estimate") %>%
+  filter(`overall_income_estimate` > 0 & `source_of_income` ==
+           "no_income")%>%
+mutate(question_xml = "info_hh_mem_y/ERL/source_of_income", question_name = "Over the
+       course of the past 30 days, what were your household's primary 
+       sources of income?", explanation =  "Household reported income but reported no 
+       income as key sources of income. Please check amount of income was correct. ", notes = "", old_value = 
+         `source_of_income`, new_value = "", reason = "")%>%
+  select(`_uuid`,question_xml, question_name, explanation, "enumerator_id",
+         notes, old_value, new_value, reason)
+```
+```{r}
+# survey submitted after 3 days
+  cleaning_log_4 <- survey_data %>%
+    select(`_uuid`,"enumerator_id",`_submission_time`,
+           `end`) %>%
+    filter(`end` - `_submission_time` <= 4320)%>%
+    mutate(question_xml = "start_end",question_name = "Survey submitted within 3 days", explanation =
+             "Survey submutted after 3 days.", old_value = "", notes =
+            "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+```
+```{r}
+ #Survey duration is too long
+  cleaning_log_5 <- survey_data %>%
+  select(`_uuid`,"enumerator_id",`end`,`start`)%>%
+  filter(`end` - `start` > 180)%>%
+    mutate(question_xml = "start_end",question_name = "Survey took more than 3 hours.", explanation =
+             "Survey was too long - please provide explanation ", old_value = "", notes =
+             "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+```
+```{r}
+# Household is likely to adopt coping strategies with a low income
+  cleaning_log_6 <- survey_data %>%
+    select(`_uuid`,"enumerator_id","overall_income_estimate","lack_income_cope")%>%
+    filter(`overall_income_estimate` == "less_than", `lack_income_cope` == "none")%>%
+    mutate(question_xml = "overall_income_estimate",question_name = "lack_income_cope", explanation = "This household is likely to adopt coping strategies with a low income. Please ask the enumerator to review their answers", old_value = "overall_income_estimate", notes = "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+```
+```{r}
+#Shelter damage exits, enclosure issues should be reported accordingly
+  cleaning_log_7 <- survey_data %>%
+    select(`_uuid`,"enumerator_id","shelter_damages_defects","shelter_enclosure_issues")%>%
+    filter(`shelter_damages_defects` == "yes" & "shelter_enclosure_issues" == "no")%>%
+    mutate(question_xml = "Does the shelter currently have any damage or defects?",question_name =
+             "shelter_damages_defects", explanation =
+             "If shelter damage exits, enclosure issues should be reported accordingly", old_value = "", notes =
+             "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+
+```
+```{r}
+#Healthcare could be accessed within 15min, it shouldn't be considered as far away.
+  cleaning_log_8 <- survey_data %>%
+   select(`_uuid`,"enumerator_id", "nearest_health_care_children", "nearest_health_care_adult", 
+           "nearest_health_care")%>%
+    filter(`nearest_health_care_children` == "no_facility_nearby" | `nearest_health_care_adult`
+           == "no_facility_nearby" & `nearest_health_care` == "less_than_15")%>%
+    mutate(question_xml = "nearest_health_care_children",question_name =
+             "nearest_health_care", explanation =
+             "if healthcare could be accessed within 15min, it shouldn't be considered as far away.", old_value = "", notes =
+             "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+```
+```{r}
+#Household has been recently displaced, it should've experienced shocks or difficulties 
+#in the past 6 months. Please check the shocks and difficulties experienced accordingly.
+  cleaning_log_9 <- survey_data %>% 
+    select(`_uuid`,"enumerator_id","diff_or_shocks", "year_first_displacement_recent")%>%
+    filter(`diff_or_shocks`=="yes" & `year_first_displacement_recent`== "2021")%>%
+    mutate(question_xml = "diff_or_shocks",question_name =
+        "Did your household experience any difficulties or shocks over the course of the past 6 months?", explanation =
+        "If the household has been recently displaced, it should've experienced shocks
+        or difficulties in the past 6 months. Please check the shocks and difficulties 
+        experienced accordingly.", old_value = "diff_or_shocks", notes =
+        "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+```
+```{r}
+#Household has no source of electricity, it shouldn't have access to hours of electricity.
+  cleaning_log_10 <- survey_data %>%
+    select(`_uuid`,"enumerator_id","main_source_electricity", "hours_of_electricity")%>%
+    filter(`main_source_electricity` == "no_source" & `hours_of_electricity` != "no_access")%>%
+    mutate(question_xml = "What is your household main source of electricity?",question_name =
+    "main_source_electricity", explanation =
+    "If household has no source of electricity, it shouldn't have access 
+    to hours of electricity. Please indicate why so and check if the hours 
+    of electricity is a typo.", old_value = "main_source_electricity", notes =
+             "", new_value = "", reason = "") %>%
+    select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+           old_value, new_value, reason)
+```
+```{r}
+#Checking expenditures (expenditure_shelter_repair, expenditure_non_food_items...) 
+#cannot be equal or more to 1 and less than 1000
+cleaning_log_11 <- survey_data %>%
+select(`_uuid`,"enumerator_id", "expenditure_shelter_repair",
+       "expenditure_non_food_items",
+       "expenditure_health_related",
+       "expenditure_education_related",
+       "expenditure_debt_related",
+       "expenditure_other_needs")%>%
+  filter(`expenditure_shelter_repair`+  
+         `expenditure_non_food_items` +  
+          `expenditure_health_related`+ 
+       `expenditure_education_related`+  
+         `expenditure_debt_related`   +  
+         `expenditure_other_needs`    < 1000)%>%
+  mutate(question_xml = "During the past 6 months, how much did your household spend,
+         in local currency, on each of the following categories of items 
+         for domestic consumption? For each, please estimate the total 
+         amount spent by your household using all modalities (cash, credit,
+         mobile money, etc.)",question_name =
+           "expenditure_past_6_months", explanation =
+        "expenditures (expenditure_shelter_repair,
+        expenditure_non_food_items...) cannot be equal
+        or more to 1 and less than 1000;", old_value = "expenditure_past_6_months", notes =
+           "", new_value = "", reason = "") %>%
+  select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+         old_value, new_value, reason)
+```
+```{r}
+#Checking amount of debt
+cleaning_log_12 <- survey_data %>%
+  select(`_uuid`,"enumerator_id","amount_of_debt")%>%
+  filter(`amount_of_debt` < 1000)%>%
+  mutate(question_xml = "What is your household's current total
+     amount of debt, in local currency?",question_name =
+    "amount_of_debt", explanation =
+    "Amount_of_debt cannot be less than 1000, but more than 0",
+    old_value = "amount_of_debt", notes =
+    "", new_value = "", reason = "") %>%
+  select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+         old_value, new_value, reason)
+```
+```{r}
+#hh_count is between 1 and 5 and water_used_day is less than 10
+cleaning_log_13 <- survey_data%>%
+  select(`_uuid`,"enumerator_id",`hh_count`,"water_used_day") %>%
+  filter(`hh_count` < 5 & "water_used_day" < 10)%>%
+  mutate(question_xml = "How many liters of water do you and your household 
+    approximately use in a day for all  purposes?",question_name =
+     "water_used_day", explanation =
+    "hh_count is between 1 and 5 and water_used_day is less than 10",
+    old_value = "water_used_day", notes =
+    "", new_value = "", reason = "") %>%
+  select(`_uuid`,question_xml, question_name, explanation, "enumerator_id", notes, 
+         old_value, new_value, reason)
+    
+```
+```{r}
+ summary_issues = rbind(cleaning_log,cleaning_log_1,cleaning_log_2,cleaning_log_3,
+                         cleaning_log_4, cleaning_log_5,
+                         cleaning_log_6, cleaning_log_7, cleaning_log_8, cleaning_log_9,
+                         cleaning_log_10, cleaning_log_11, cleaning_log_12,cleaning_log_13)
+write_xlsx(summary_issues, "flagged_data_1.xlsx")
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
